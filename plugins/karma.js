@@ -9,8 +9,7 @@ const init = (config) => {
   const appConfig = angularCliConfig.apps[0];
 
   // add webpack config
-  config.webpack = getWebpackTestConfig(config.basePath, appConfig);
-  config.webpackMiddleware = {
+  const webpackMiddlewareConfig = {
     noInfo: true, // Hide webpack output because its noisy.
     stats: { // Also prevent chunk and module display output, cleaner look. Only emit errors.
       assets: false,
@@ -22,6 +21,8 @@ const init = (config) => {
       chunkModules: false
     }
   };
+  config.webpack = Object.assign(getWebpackTestConfig(config.basePath, appConfig), config.webpack);
+  config.webpackMiddleware = Object.assign(webpackMiddlewareConfig, config.webpackMiddleware);
 
   // replace the angular-cli preprocessor with webpack+sourcemap
   Object.keys(config.preprocessors)
