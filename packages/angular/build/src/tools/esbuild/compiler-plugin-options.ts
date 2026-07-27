@@ -45,5 +45,6 @@ export function createCompilerPluginOptions(
     instrumentForCoverage,
     templateUpdates,
     includeTestMetadata: !optimizationOptions.scripts,
+    verboseDiagnostics: !!options.verbose,
   };
 }

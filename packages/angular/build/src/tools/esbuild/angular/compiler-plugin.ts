@@ -48,6 +48,12 @@ export interface CompilerPluginOptions {
    */
   includeTestMetadata?: boolean;
 
+  /**
+   * Report diagnostics that are summarized by default (such as Custom Elements Manifest
+   * warnings) at full detail, mirroring the builder's `--verbose` option.
+   */
+  verboseDiagnostics?: boolean;
+
   advancedOptimizations?: boolean;
   thirdPartySourcemaps?: boolean;
   fileReplacements?: Record<string, string>;
@@ -757,6 +763,10 @@ function createCompilerOptionsTransformer(
         !compilerOptions.isolatedModules || !!pluginOptions.instrumentForCoverage,
       supportTestBed: !!pluginOptions.includeTestMetadata,
       supportJitMode: !!pluginOptions.includeTestMetadata,
+      // `--verbose` expands diagnostics that the compiler summarizes by default.
+      ...(pluginOptions.verboseDiagnostics
+        ? { customElementsManifestsDiagnostics: 'verbose' as const }
+        : {}),
     };
   };
 }
