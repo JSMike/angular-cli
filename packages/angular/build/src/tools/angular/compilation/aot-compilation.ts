@@ -22,6 +22,7 @@ import { lazyRoutesTransformer } from '../transformers/lazy-routes-transformer';
 import { createWorkerTransformer } from '../transformers/web-worker-transformer';
 import { AngularCompilation, DiagnosticModes, EmitFileResult } from './angular-compilation';
 import { collectHmrCandidates } from './hmr-candidates';
+import { filterRepeatedOptionWarnings } from './option-diagnostics';
 import { printSourceFileWithMap } from './typescript-printer';
 
 /**
@@ -50,6 +51,13 @@ class AngularCompilationState {
 
 export class AotCompilation extends AngularCompilation {
   #state?: AngularCompilationState;
+
+  /**
+   * Warning-category option diagnostic texts reported by an earlier build in this watch
+   * session, used to avoid re-reporting unchanged warnings (such as Custom Elements Manifest
+   * warnings) on every rebuild.
+   */
+  #reportedOptionWarnings: Set<string> | null = null;
 
   constructor(private readonly browserOnlyBuild: boolean) {
     super();
@@ -240,6 +248,24 @@ export class AotCompilation extends AngularCompilation {
     };
   }
 
+  /**
+   * Yields the Angular compiler's option diagnostics, suppressing warning-category diagnostics
+   * whose text was already reported unchanged by an earlier build in this watch session.
+   * Errors are always reported. When the set of option warnings changes — for example after a
+   * Custom Elements Manifest edit — the full set is reported again so no context is lost.
+   */
+  *#collectAngularOptionDiagnostics(
+    optionDiagnostics: Iterable<ts.Diagnostic>,
+  ): Iterable<ts.Diagnostic> {
+    const { diagnostics, reportedWarningTexts } = filterRepeatedOptionWarnings(
+      optionDiagnostics,
+      this.#reportedOptionWarnings,
+    );
+    this.#reportedOptionWarnings = reportedWarningTexts;
+
+    yield* diagnostics;
+  }
+
   *collectDiagnostics(modes: DiagnosticModes): Iterable<ts.Diagnostic> {
     assert(this.#state, 'Angular compilation must be initialized prior to collecting diagnostics.');
     const {
@@ -256,7 +282,7 @@ export class AotCompilation extends AngularCompilation {
     // Collect program level diagnostics
     if (modes & DiagnosticModes.Option) {
       yield* typeScriptProgram.getConfigFileParsingDiagnostics();
-      yield* angularCompiler.getOptionDiagnostics();
+      yield* this.#collectAngularOptionDiagnostics(angularCompiler.getOptionDiagnostics());
       yield* typeScriptProgram.getOptionsDiagnostics();
     }
     if (syntactic) {
